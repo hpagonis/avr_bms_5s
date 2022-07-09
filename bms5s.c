@@ -19,10 +19,14 @@
 
 uint16_t cellv[CELL_NUMBER];
 
+void transmit_voltage(uint16_t voltage);
+void transmit(uint8_t value);
+
 int main() {
   DDRB |= _BV(LEDPIN);
   PORTB = _BV(LEDPIN);
   DDRD |= _BV(DC1PIN) | _BV(DC2PIN);
+  PORTD |= _BV(DC2PIN);
 
   // Initialize ADC
   // Set AVcc as voltage reference, enable ADC and interrupt
@@ -33,7 +37,7 @@ int main() {
   // Initialize UART
   // Enable MPCM mode at 9600 baud 9N1
   UCSRA = _BV(MPCM);
-  UCSRB = _BV(RXCIE) | _BV(RXEN) | _BV(TXEN) | _BV(UCSZ2);
+  UCSRB = _BV(RXCIE) | _BV(RXEN) | _BV(TXEN) | _BV(UCSZ2) | _BV(TXB8);
   UCSRC = _BV(URSEL) | _BV(UCSZ1) | _BV(UCSZ0);
   UBRRL = 51;
 
@@ -46,16 +50,34 @@ int main() {
       ADMUX |= i;
       ADCSRA |= _BV(ADSC);
       while (ADCSRA & _BV(ADSC));
-      cellv[i] = ADCL;
-      cellv[i] |= (ADCH << 8);
+      uint8_t *pcellv = &cellv[i];
+      *pcellv = ADCL;
+      pcellv++;
+      *pcellv = ADCH;
+      transmit_voltage(cellv[i]);
 
       if (cellv[i] > OV) {
         PORTB |= _BV(LEDPIN);
       } else {
         PORTB &= ~_BV(LEDPIN);
       }
+
+      //if (i != CELL_NUMBER - 1) transmit(',');
     }
+    //transmit('\n');
   }
+}
+
+void transmit_voltage(uint16_t voltage) {
+  while (!(UCSRA & _BV(UDRE)));
+  UDR = (uint8_t) voltage;
+  while (!(UCSRA & _BV(UDRE)));
+  UDR = (uint8_t) (voltage >> 8);
+}
+
+void transmit(uint8_t value) {
+  while (!(UCSRA & _BV(UDRE)));
+  UDR = value;
 }
 
 ISR(USART_RXC_vect) {
