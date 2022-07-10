@@ -9,8 +9,8 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-#define OV (4200 * 1024) / 5000
-#define UV (3000 * 1024) / 5000
+#define OV (4200L * 1024) / 5000
+#define UV (3000L * 1024) / 5000
 #define SLAVE_ADDRESS 1
 #define CELL_NUMBER 2
 #define DC1PIN PIND3
