@@ -18,15 +18,19 @@
 #define LEDPIN PINB5
 
 uint16_t cellv[CELL_NUMBER];
+uint8_t dc_pin[CELL_NUMBER] = {PIND3, PIND4};
 
 void transmit_voltage(uint16_t voltage);
-void transmit(uint8_t value);
 
 int main() {
+  // Initialize indicator LED
   DDRB |= _BV(LEDPIN);
   PORTB = _BV(LEDPIN);
-  DDRD |= _BV(DC1PIN) | _BV(DC2PIN);
-  PORTD |= _BV(DC2PIN);
+  // Initialize DC pins
+  for (int i=0; i<CELL_NUMBER; i++) {
+    DDRD |= _BV(dc_pin[i]);
+    if ( i != 0) PORTD |= _BV(dc_pin[i]);
+  }
 
   // Initialize ADC
   // Set AVcc as voltage reference, enable ADC and interrupt
@@ -57,14 +61,19 @@ int main() {
       transmit_voltage(cellv[i]);
 
       if (cellv[i] > OV) {
-        PORTB |= _BV(LEDPIN);
+        if (i == 0) {
+          PORTD |= _BV(dc_pin[i]);
+        } else {
+          PORTD &= ~_BV(dc_pin[i]);
+        }
       } else {
-        PORTB &= ~_BV(LEDPIN);
+        if (i == 0) {
+          PORTD &= ~_BV(dc_pin[i]);
+        } else {
+          PORTD |= _BV(dc_pin[i]);
+        }
       }
-
-      //if (i != CELL_NUMBER - 1) transmit(',');
     }
-    //transmit('\n');
   }
 }
 
@@ -73,11 +82,6 @@ void transmit_voltage(uint16_t voltage) {
   UDR = (uint8_t) voltage;
   while (!(UCSRA & _BV(UDRE)));
   UDR = (uint8_t) (voltage >> 8);
-}
-
-void transmit(uint8_t value) {
-  while (!(UCSRA & _BV(UDRE)));
-  UDR = value;
 }
 
 ISR(USART_RXC_vect) {
