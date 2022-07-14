@@ -1,8 +1,7 @@
 /******************************
  * TODO
- * Read ADC values for cell 1 and 2
- * Compare values to target
- * Activate/Deactivate Discarge
+ * - Add hysterisis
+ * - Implement communication
  *
  * Author: Harris Pagonis
  ******************************/
@@ -13,12 +12,11 @@
 #define UV (3000L * 1024) / 5000
 #define SLAVE_ADDRESS 1
 #define CELL_NUMBER 2
-#define DC1PIN PIND3
-#define DC2PIN PIND4
 #define LEDPIN PINB5
 
 uint16_t cellv[CELL_NUMBER];
 uint8_t dc_pin[CELL_NUMBER] = {PIND3, PIND4};
+int8_t offset[CELL_NUMBER] = {5, 0};
 
 void transmit_voltage(uint16_t voltage);
 
@@ -48,16 +46,18 @@ int main() {
   //sei();
 
   while(1) {
+    transmit_voltage(0xFFFF);
     // Read cell voltages
     for (uint8_t i = 0; i < CELL_NUMBER; i++) {
       ADMUX &= 0xF0;
       ADMUX |= i;
       ADCSRA |= _BV(ADSC);
       while (ADCSRA & _BV(ADSC));
-      uint8_t *pcellv = &cellv[i];
+      uint8_t *pcellv = (uint8_t *)&cellv[i];
       *pcellv = ADCL;
       pcellv++;
       *pcellv = ADCH;
+      cellv[i] += offset[i];
       transmit_voltage(cellv[i]);
 
       if (cellv[i] > OV) {
