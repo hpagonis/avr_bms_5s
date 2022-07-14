@@ -1,6 +1,5 @@
 /******************************
  * TODO
- * - Add hysterisis
  * - Implement communication
  *
  * Author: Harris Pagonis
@@ -23,12 +22,17 @@ void transmit_voltage(uint16_t voltage);
 int main() {
   // Initialize indicator LED
   DDRB |= _BV(LEDPIN);
-  PORTB = _BV(LEDPIN);
+  //PORTB = _BV(LEDPIN);
   // Initialize DC pins
   for (int i=0; i<CELL_NUMBER; i++) {
     DDRD |= _BV(dc_pin[i]);
     if ( i != 0) PORTD |= _BV(dc_pin[i]);
   }
+
+  // Initialize Hysterisis Timer
+  // around 30Hz
+  TCCR0 = _BV(CS02) | _BV(CS00);
+  TIMSK = _BV(TOIE0);
 
   // Initialize ADC
   // Set AVcc as voltage reference, enable ADC and interrupt
@@ -43,7 +47,7 @@ int main() {
   UCSRC = _BV(URSEL) | _BV(UCSZ1) | _BV(UCSZ0);
   UBRRL = 51;
 
-  //sei();
+  sei();
 
   while(1) {
     transmit_voltage(0xFFFF);
@@ -66,13 +70,7 @@ int main() {
         } else {
           PORTD &= ~_BV(dc_pin[i]);
         }
-      } else {
-        if (i == 0) {
-          PORTD &= ~_BV(dc_pin[i]);
-        } else {
-          PORTD |= _BV(dc_pin[i]);
-        }
-      }
+      } 
     }
   }
 }
@@ -82,6 +80,17 @@ void transmit_voltage(uint16_t voltage) {
   UDR = (uint8_t) voltage;
   while (!(UCSRA & _BV(UDRE)));
   UDR = (uint8_t) (voltage >> 8);
+}
+
+ISR(TIMER0_OVF_vect) {
+  static uint8_t counter = 0;
+  counter++;
+  if (counter == 15) {
+    for (int i=0; i<CELL_NUMBER; i++) {
+      PORTD |= _BV(dc_pin[i]);
+    }
+    counter = 0;
+  }
 }
 
 ISR(USART_RXC_vect) {
