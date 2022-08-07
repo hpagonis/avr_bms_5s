@@ -19,7 +19,7 @@ PRJ = bms5s
 # avr mcu
 MCU = atmega8
 # mcu clock frequency
-CLK = 8000000
+CLK = 16000000
 # avr programmer (and port if necessary)
 # e.g. PRG = usbtiny -or- PRG = arduino -P /dev/tty.usbmodem411
 PRG = usbasp
@@ -28,7 +28,6 @@ PRG = usbasp
 # see http://www.engbedded.com/fusecalc/ for other MCUs and options
 LFU = 0xFF
 HFU = 0xD9
-EFU = 0xFF
 # program source files (not including external libraries)
 SRC = $(PRJ).cpp
 # where to look for external libraries (consisting of .c/.cpp files and .h files)
@@ -75,7 +74,7 @@ flash: all
 
 # write fuses to mcu
 fuse:
-	$(AVRDUDE) -U lfuse:w:$(LFU):m -U hfuse:w:$(HFU):m -U efuse:w:$(EFU):m
+	$(AVRDUDE) -U lfuse:w:$(LFU):m -U hfuse:w:$(HFU):m
 
 # generate disassembly files for debugging
 disasm: $(PRJ).elf
@@ -103,4 +102,6 @@ $(PRJ).elf: $(OBJ)
 $(PRJ).hex: $(PRJ).elf
 	rm -f $(PRJ).hex
 	$(OBJCOPY) -j .text -j .data -O ihex $(PRJ).elf $(PRJ).hex
+	$(OBJCOPY) -j .eeprom --set-section-flags=.eeprom="alloc,load" \
+	--change-section-lma .eeprom=0 --no-change-warnings -O ihex $< $(PRJ).eep
 	$(SIZE) $(PRJ).elf
