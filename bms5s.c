@@ -1,21 +1,29 @@
 /******************************
  * TODO
  * - Implement communication
- *
+ * - Minimize energy usage
+ * 
  * Author: Harris Pagonis
  ******************************/
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <avr/eeprom.h>
 
 #define OV (4200L * 1024) / 5000
 #define UV (3000L * 1024) / 5000
-#define SLAVE_ADDRESS 1
-#define CELL_NUMBER 2
+#define CELL_NUMBER 5
 #define LEDPIN PINB5
+#define CMD_SET_SLAVE_ADDRESS 0x10
+#define CMD_READ_VOLTAGES 0x20
+#define CMD_SET_OFFSETS 0x30
 
 uint16_t cellv[CELL_NUMBER];
-uint8_t dc_pin[CELL_NUMBER] = {PIND3, PIND4};
-int8_t offset[CELL_NUMBER] = {5, 0};
+uint8_t dc_pin[CELL_NUMBER] = {PIND4, PIND3, PIND2, PIND5, PIND6};
+int8_t offset[CELL_NUMBER];
+uint8_t volatile address;
+uint8_t EEMEM e_address = 3;
+int8_t EEMEM e_offset[CELL_NUMBER] = {9, 7, -10, 14, 4};
+uint8_t volatile cmd;
 
 void transmit_voltage(uint16_t voltage);
 
@@ -45,16 +53,19 @@ int main() {
   UCSRA = _BV(MPCM);
   UCSRB = _BV(RXCIE) | _BV(RXEN) | _BV(TXEN) | _BV(UCSZ2) | _BV(TXB8);
   UCSRC = _BV(URSEL) | _BV(UCSZ1) | _BV(UCSZ0);
-  UBRRL = 51;
+  UBRRL = 103;
+
+  // Read settings from EEPROM
+  address = eeprom_read_byte(&e_address);
+  eeprom_read_block((void*)&offset, (const void*)&e_offset, CELL_NUMBER);
 
   sei();
 
   while(1) {
-    transmit_voltage(0xFFFF);
     // Read cell voltages
     for (uint8_t i = 0; i < CELL_NUMBER; i++) {
       ADMUX &= 0xF0;
-      ADMUX |= i;
+      ADMUX |= CELL_NUMBER - i - 1;
       ADCSRA |= _BV(ADSC);
       while (ADCSRA & _BV(ADSC));
       uint8_t *pcellv = (uint8_t *)&cellv[i];
@@ -62,7 +73,6 @@ int main() {
       pcellv++;
       *pcellv = ADCH;
       cellv[i] += offset[i];
-      transmit_voltage(cellv[i]);
 
       if (cellv[i] > OV) {
         if (i == 0) {
@@ -71,6 +81,24 @@ int main() {
           PORTD &= ~_BV(dc_pin[i]);
         }
       } 
+    }
+
+    if (cmd) {
+      uint8_t cmd_part = cmd & 0xF0;
+      uint8_t data_part = cmd & 0x0F;
+      if (cmd_part == CMD_SET_SLAVE_ADDRESS) {
+        address = data_part;
+        eeprom_write_byte(&e_address, data_part);
+      }
+      if (cmd_part == CMD_SET_OFFSETS) {
+        // TODO
+      }
+      if (cmd_part == CMD_READ_VOLTAGES) {
+        for (uint8_t i = 0; i < CELL_NUMBER; i++) {
+          transmit_voltage(cellv[i]);
+        }
+      }
+      cmd = 0;
     }
   }
 }
@@ -86,9 +114,10 @@ ISR(TIMER0_OVF_vect) {
   static uint8_t counter = 0;
   counter++;
   if (counter == 15) {
-    for (int i=0; i<CELL_NUMBER; i++) {
+    for (int i=1; i<CELL_NUMBER; i++) {
       PORTD |= _BV(dc_pin[i]);
     }
+    PORTD &= ~_BV(dc_pin[0]);
     counter = 0;
   }
 }
@@ -96,11 +125,12 @@ ISR(TIMER0_OVF_vect) {
 ISR(USART_RXC_vect) {
   // Determine if address or data
   if (UCSRB & _BV(RXB8)) {
-    if (UDR == SLAVE_ADDRESS) {
+    if (UDR == address) {
       UCSRA = 0;
     }
   } else {
-    // Add character to receive buffer
+    cmd = UDR;
+    UCSRA = _BV(MPCM);
   }
 }
 
