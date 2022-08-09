@@ -47,17 +47,21 @@ int main() {
 
   // Initialize ADC
   // Set AVcc as voltage reference, enable ADC and interrupt
-  // Set prescaler to 32 for 500KHz ADC clock
+  // Set prescaler to 16 for 125KHz ADC clock
   ADMUX = _BV(REFS0);
   ADCSRA = _BV(ADEN) | _BV(ADPS2);
 
   // Initialize UART
   // Enable MPCM mode at 9600 baud 9N1
+  #if USE_2X
+  UCSRA = _BV(MPCM) | _BV(U2X);
+  #else
   UCSRA = _BV(MPCM);
+  #endif
+  //UBRRH = 0;
+  //UBRRL = 12;
   UCSRB = _BV(RXCIE) | _BV(RXEN) | _BV(TXEN) | _BV(UCSZ2) | _BV(TXB8);
   UCSRC = _BV(URSEL) | _BV(UCSZ1) | _BV(UCSZ0);
-  UBRRH = UBRRH_VALUE;
-  UBRRL = UBRRL_VALUE;
 
   // Read settings from EEPROM
   address = eeprom_read_byte(&e_address);
