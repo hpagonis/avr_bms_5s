@@ -19,15 +19,15 @@ PRJ = bms5s
 # avr mcu
 MCU = atmega8
 # mcu clock frequency
-CLK = 16000000
+CLK = 1000000
 # avr programmer (and port if necessary)
 # e.g. PRG = usbtiny -or- PRG = arduino -P /dev/tty.usbmodem411
 PRG = usbasp
 # fuse values for avr: low, high, and extended
 # these values are from an Arduino Uno (ATMega328P)
 # see http://www.engbedded.com/fusecalc/ for other MCUs and options
-LFU = 0xFF
-HFU = 0xD9
+LFU = 0x21
+HFU = 0xD1
 # program source files (not including external libraries)
 SRC = $(PRJ).cpp
 # where to look for external libraries (consisting of .c/.cpp files and .h files)

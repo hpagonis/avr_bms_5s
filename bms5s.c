@@ -9,6 +9,9 @@
 #include <avr/interrupt.h>
 #include <avr/eeprom.h>
 
+#define BAUD 9600
+#include <util/setbaud.h>
+
 #define OV (4200L * 1024) / 5000
 #define UV (3000L * 1024) / 5000
 #define CELL_NUMBER 5
@@ -53,7 +56,8 @@ int main() {
   UCSRA = _BV(MPCM);
   UCSRB = _BV(RXCIE) | _BV(RXEN) | _BV(TXEN) | _BV(UCSZ2) | _BV(TXB8);
   UCSRC = _BV(URSEL) | _BV(UCSZ1) | _BV(UCSZ0);
-  UBRRL = 103;
+  UBRRH = UBRRH_VALUE;
+  UBRRL = UBRRL_VALUE;
 
   // Read settings from EEPROM
   address = eeprom_read_byte(&e_address);
